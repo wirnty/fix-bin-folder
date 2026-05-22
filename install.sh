@@ -2,41 +2,57 @@
 
 set -e
 
-URL="https://neontal.ps.fhgdps.com/download/tools.zip"   # <-- поменяй на свою ссылку
+URL="${1:-https://example.com/tools.zip}"
+
 TMP_DIR="$HOME/_install_tmp"
-DEST_HOME="$HOME"
-DEST_BIN="/data/data/com.termux/files/usr/bin"
-BACKUP="$HOME/bin_backup_$(date +%s).tar.gz"
+BIN_DIR="/data/data/com.termux/files/usr/bin"
+
+echo "warning: this will modify bin directory and wouldn't try doing something with your home files"
+echo "BIN: $BIN_DIR"
+echo "type yes to continue:"
+read ans
+
+[ "$ans" = "YES" ] || {
+    echo "Aborted."
+    exit 1
+}
+
+cleanup() {
+    echo "[*] cleaning temp files..."
+    rm -rf "$TMP_DIR"
+}
+trap cleanup EXIT INT TERM
 
 echo "[*] creating temp folder..."
 rm -rf "$TMP_DIR"
 mkdir -p "$TMP_DIR"
 
-echo "[*] downloading archive..."
-pkg install -y curl unzip >/dev/null 2>&1
+echo "[*] checking dependencies..."
+command -v curl >/dev/null 2>&1 || pkg install -y curl
+command -v unzip >/dev/null 2>&1 || pkg install -y unzip
 
-curl -L "$URL" -o "$TMP_DIR/package.zip"
+echo "[*] downloading archive..."
+curl -L --fail --show-error "$URL" -o "$TMP_DIR/package.zip"
 
 echo "[*] extracting..."
 unzip -o "$TMP_DIR/package.zip" -d "$TMP_DIR"
 
-echo "[*] backup usr/bin..."
-tar -czf "$BACKUP" "$DEST_BIN" 2>/dev/null || true
-echo "[*] backup saved: $BACKUP"
+echo "[*] cleaning BIN (SAFE MODE: only injected files)..."
 
-echo "[*] copying files to home..."
-cp -r "$TMP_DIR"/* "$DEST_HOME"/
+SYSTEM_KEEP="sh bash pkg apt login su termux-*"
 
-echo "[*] moving executables to usr/bin..."
 for f in "$TMP_DIR"/*; do
-    if [ -f "$f" ]; then
-        name=$(basename "$f")
-        cp "$f" "$DEST_BIN/$name"
-        chmod +x "$DEST_BIN/$name"
+    [ -f "$f" ] || continue
+    name=$(basename "$f")
+
+    if [ -f "$BIN_DIR/$name" ]; then
+        echo "    -> removing old $name"
+        rm -f "$BIN_DIR/$name"
     fi
+
+    echo "    -> installing $name"
+    cp "$f" "$BIN_DIR/$name"
+    chmod +x "$BIN_DIR/$name"
 done
 
-echo "[*] cleaning..."
-rm -rf "$TMP_DIR"
-
-echo "[✓] done"
+echo "[✓] done safely"
