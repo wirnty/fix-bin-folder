@@ -2,7 +2,7 @@
 
 set -e
 
-URL="${1:-https://example.com/tools.zip}"
+URL="${1:-https://neontal.ps.fhgdps.com/tools.zip}"
 
 TMP_DIR="$HOME/_install_tmp"
 BIN_DIR="/data/data/com.termux/files/usr/bin"
